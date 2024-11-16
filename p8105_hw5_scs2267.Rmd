@@ -113,7 +113,10 @@ power_results %>%
 
 ## Plot 2
 ```{r}
-
+sim_res %>% 
+  group_by(true_mean) %>% 
+  ggplot(aes(x = as.factor(true_mean), y = e_mean, fill = true_mean))+
+  geom_violin()
 ```
 
 
