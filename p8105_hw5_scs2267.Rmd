@@ -6,7 +6,7 @@ date: "2024-11-15"
 
 ```{r}
 library(tidyverse)
-
+library(readr)
 set.seed(1)
 ```
 
@@ -53,6 +53,7 @@ bday_sim(10)
 
 ## Mean of Zero
 
+
 ```{r}
 sim_mean_sd = function(n = 30, mu, sd = 5) {
   
@@ -60,11 +61,12 @@ sim_data = rnorm(n, mu, sd)
   
 test = t.test(sim_data, y=NULL, alternative = c("two.sided"), mu = mu) %>% broom::tidy() %>% 
   janitor::clean_names() %>% 
-  select(p_value)
+  select(p_value, estimate)
   
   out_df = tibble(
-    mean = mu,
-    p_value = test$p_value
+    true_mean = mu,
+    p_value = test$p_value,
+    e_mean = test$estimate
   )
   
   return(out_df)
@@ -93,7 +95,31 @@ sim_res =
   ) %>%  
   mutate(samp_res = map(mu, \(x) sim_mean_sd(n = 30, x, sd = 5))) %>%  
   unnest(samp_res) %>% 
-  select(mu, p_value)
+  select(true_mean, p_value, e_mean)
 ```
 
+## Plot 1
+
+```{r}
+power_results = sim_res %>%
+  group_by(true_mean) %>% 
+  summarize(
+    power = mean(p_value < 0.05)
+  )
+power_results %>% 
+  ggplot(aes(x = true_mean, y = power))+
+  geom_line()
+```
+
+## Plot 2
+```{r}
+
+```
+
+
+
+# Problem 3
+```{r}
+
+```
 
