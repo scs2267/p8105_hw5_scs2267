@@ -110,19 +110,127 @@ power_results %>%
   ggplot(aes(x = true_mean, y = power))+
   geom_line()
 ```
+It appears that the effect size decreases for true means 1-3, increases from true means 3-4, decreases from true means 4-5, and increases from true means 5-6. There does not seem to be a consistent trend in power in relation to the true mean. 
 
 ## Plot 2
 ```{r}
 sim_res %>% 
   group_by(true_mean) %>% 
   ggplot(aes(x = as.factor(true_mean), y = e_mean, fill = true_mean))+
-  geom_violin()
+  geom_boxplot()+
+  labs(
+    x = "True Mean",
+    y = "Estimated Mean"
+  )
+```
+
+## Plot 3
+```{r}
+sim_res %>% 
+  filter(p_value<0.05) %>% 
+  group_by(true_mean) %>% 
+  ggplot(aes(x = as.factor(true_mean), y = e_mean, fill = true_mean))+
+  geom_boxplot()+
+  labs(
+    x = "True Mean",
+    y = "Estimated Mean"
+  )
+```
+
+Most of the sample averages of mu across tests for which the null is rejected are not equal to the true mean. This is because rejecting the null indicates that there is evidence of a statistically significant difference between the estimate and the true mean. Therefore, the sample averages for which the null hypothesis is rejected are not equal to the true means because these averages are more extreme than the null threshold, and therefore it is less likely that the average is equal to the true mean.
+
+# Problem 3
+
+The homocide dataset contains information for all fifty states on the date of each homocide, the names of the victims, the victims race, age and sex, the city and state where the homocide occured, the latitude and longitude, and the disposition. There are 52,179 observations in the raw dataset. 
+
+```{r}
+homocide_df = read_csv("./data/homicide-data.csv")%>% 
+ mutate(
+   city_state = paste(city, state, sep = ", "),
+   case_status = if_else(disposition == "Closed without arrest"|disposition == "Open/No arrest", "unsolved", "solved")
+ ) 
+
+total_df = homocide_df %>% 
+  group_by(city_state) %>% 
+  summarize(
+    total_homocide = n(),
+  )
+
+unsolved_df = homocide_df %>%
+  filter(case_status == "unsolved") %>% 
+  group_by(city_state) %>% 
+  summarize(
+    total_unsolved = n(),
+  )
+
+proportion_test = left_join(total_df, unsolved_df, by = "city_state") %>% 
+   drop_na()
+
 ```
 
 
 
-# Problem 3
+## Prop Test for Baltimore
 ```{r}
+bal_data = proportion_test %>% 
+  filter(city_state == "Baltimore, MD")
+
+test = prop.test(
+  x = bal_data$total_unsolved, 
+  n = bal_data$total_homocide, 
+  p = NULL, 
+  alternative = c("two.sided"), 
+  conf.level = 0.95) %>% 
+  broom::tidy(test)
+
+test %>% 
+  janitor::clean_names() %>% 
+  select(estimate, conf_low, conf_high) %>% 
+  knitr::kable()
+```
+
+## Prop test for all cities
+
+```{r}
+proportion_func = function(x, y){
+  test = prop.test(
+  x = x, 
+  n = y, 
+  p = NULL, 
+  alternative = c("two.sided"), 
+  conf.level = 0.95) %>% 
+  broom::tidy()
+  
+  return(test)
+}
+
+unsolved_homocide = proportion_test %>% 
+    mutate(
+      output = purrr::map2(
+        total_unsolved,
+        total_homocide,
+        ~proportion_func(x = .x, y = .y))) %>% 
+    unnest(output) %>% 
+    janitor::clean_names() %>% 
+    select(city_state, estimate, conf_low, conf_high)
+
+unsolved_homocide %>% 
+  knitr::kable()
+```
+
+## Plot for Estimates and Confidence Interavals
+
+```{r}
+unsolved_homocide %>% 
+  mutate(city_state = fct_reorder(city_state, estimate)) %>% 
+  ggplot(aes(x = city_state, y = estimate))+
+  geom_point()+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  geom_errorbar(aes(ymin = conf_low, ymax = conf_high))+
+   labs(
+    x = "City and State",
+    y = "Estimated Unsolved Homicides"
+  )
 
 ```
 
